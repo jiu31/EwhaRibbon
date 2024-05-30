@@ -72,7 +72,12 @@ public class DB2024Team13_customWindow {
             public void itemStateChanged(ItemEvent e) {
                 if (e.getStateChange() == ItemEvent.SELECTED) {
                     String selectedBuilding = (String) buildingDropdown.getSelectedItem();
-                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    List<Restaurant> restaurants;
+                    if ("전체".equals(selectedBuilding)) {
+                        restaurants = getAllRestaurants(buildingRestaurantMap);
+                    } else {
+                        restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    }
                     filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
                 }
             }
@@ -84,7 +89,12 @@ public class DB2024Team13_customWindow {
                 @Override
                 public void itemStateChanged(ItemEvent e) {
                     String selectedBuilding = (String) buildingDropdown.getSelectedItem();
-                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    List<Restaurant> restaurants;
+                    if ("전체".equals(selectedBuilding)) {
+                        restaurants = getAllRestaurants(buildingRestaurantMap);
+                    } else {
+                        restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    }
                     filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
                 }
             });
@@ -96,16 +106,20 @@ public class DB2024Team13_customWindow {
             public void itemStateChanged(ItemEvent e) {
                 if (e.getStateChange() == ItemEvent.SELECTED) {
                     String selectedBuilding = (String) buildingDropdown.getSelectedItem();
-                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    List<Restaurant> restaurants;
+                    if ("전체".equals(selectedBuilding)) {
+                        restaurants = getAllRestaurants(buildingRestaurantMap);
+                    } else {
+                        restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    }
                     filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
                 }
             }
         });
 
         // 초기 데이터를 설정 (첫 번째 건물의 레스토랑 리스트를 미리 표시)
-        if (buildingDropdown.getItemCount() > 0) {
-            buildingDropdown.setSelectedIndex(0);
-        }
+        buildingDropdown.insertItemAt("전체", 0);
+        buildingDropdown.setSelectedIndex(0);
 
         // 레스토랑 리스트에 마우스 리스너 추가 (더블 클릭 시 상세 정보 보기)
         restaurantJList.addMouseListener(new MouseAdapter() {
@@ -147,8 +161,11 @@ public class DB2024Team13_customWindow {
         // 정렬
         sortRestaurants(filteredRestaurants, sortOption);
 
+        Set<String> restaurantNames = new HashSet<>();
         for (Restaurant restaurant : filteredRestaurants) {
-            listModel.addElement(restaurant.getName());
+            if (restaurantNames.add(restaurant.getName())) {
+                listModel.addElement(restaurant.getName());
+            }
         }
     }
 
@@ -167,7 +184,7 @@ public class DB2024Team13_customWindow {
                 restaurants.sort(Comparator.comparingDouble(Restaurant::getAvgRating).reversed());
                 break;
             case "이름순":
-                restaurants.sort(Comparator.comparing(Restaurant::getName, Comparator.reverseOrder()));
+                restaurants.sort(Comparator.comparing(Restaurant::getName));
                 break;
         }
     }
@@ -228,6 +245,25 @@ public class DB2024Team13_customWindow {
         }
 
         return buildingRestaurantMap;
+    }
+
+    /**
+     * 모든 레스토랑을 가져오는 메소드
+     *
+     * @param buildingRestaurantMap 건물별 레스토랑 목록을 담은 맵
+     * @return 모든 레스토랑 리스트
+     */
+    private static List<Restaurant> getAllRestaurants(Map<String, List<Restaurant>> buildingRestaurantMap) {
+        Set<String> restaurantNames = new HashSet<>();
+        List<Restaurant> allRestaurants = new ArrayList<>();
+        for (List<Restaurant> restaurants : buildingRestaurantMap.values()) {
+            for (Restaurant restaurant : restaurants) {
+                if (restaurantNames.add(restaurant.getName())) {
+                    allRestaurants.add(restaurant);
+                }
+            }
+        }
+        return allRestaurants;
     }
 
     /**
