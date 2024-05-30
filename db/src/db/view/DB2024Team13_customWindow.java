@@ -1,151 +1,289 @@
 package db.view;
 
+import db.controller.DB2024Team13_connection;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionListener;
-import java.util.ArrayList;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.*;
 import java.util.List;
 
-public class DB2024Team13_mainWindow {
-    // Constants
-    private static final int WINDOW_WIDTH = 900;
-    private static final int WINDOW_HEIGHT = 700;
-  
-    private static final Color COLOR_EWHA_GREEN = new Color(0, 72, 42);
-    private static final Color COLOR_SELECTED_BUTTON = Color.GRAY;
-    private static final Color COLOR_DEFAULT_BUTTON = Color.LIGHT_GRAY;
-    private static final Color COLOR_SELECTED_BUTTON_TEXT = Color.WHITE;
-    private static final Color COLOR_DEFAULT_BUTTON_TEXT = Color.BLACK;
+public class DB2024Team13_customWindow {
 
-    private final JPanel mainPanel = new JPanel(new BorderLayout());
-    private final List<JButton> sidebarButtonList = new ArrayList<>();
-    private JButton mainButton;  // "메인" 버튼을 참조할 필드를 추가합니다.
+    /**
+     * 선택 패널을 생성하는 메소드
+     *
+     * @param mainWindow 메인 윈도우 인스턴스
+     * @return 선택 패널
+     */
+    public static JPanel createSelectionPanel(DB2024Team13_mainWindow mainWindow) {
+        JPanel mainSelectionPanel = new JPanel(new BorderLayout());
+        mainSelectionPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-    // Main window execution method
-    public static void launchMainWindow() {
-        SwingUtilities.invokeLater(() -> {
-            DB2024Team13_mainWindow app = new DB2024Team13_mainWindow();
-            JFrame frame = app.createMainFrame();
-            frame.setVisible(true);
-        });
-    }
+        JPanel filterPanel = new JPanel();
+        filterPanel.setLayout(new BoxLayout(filterPanel, BoxLayout.Y_AXIS));
 
-    // Constructor
-    public DB2024Team13_mainWindow() {
-        // Set initial content to "메인" panel and highlight "메인" button
-        displayContent(DB2024Team13_customWindow.createSelectionPanel(this));
-    }
+        // 드롭다운 메뉴 패널
+        JPanel dropdownPanel = new JPanel();
+        dropdownPanel.setLayout(new BoxLayout(dropdownPanel, BoxLayout.X_AXIS));
 
-    // Create main frame
-    private JFrame createMainFrame() {
-        JFrame frame = new JFrame("EwhaRibbon");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-        frame.setLayout(new BorderLayout());
+        // 새로운 드롭다운 메뉴 옵션
+        String[] sortOptions = {"주문순", "평점순", "이름순"};
+        JComboBox<String> sortDropdown = new JComboBox<>(sortOptions);
 
-        frame.add(createTitleBar(), BorderLayout.NORTH);
-        frame.add(createSidebar(), BorderLayout.WEST);
-        frame.add(mainPanel, BorderLayout.CENTER);
+        // 드롭다운 패널에 드롭다운 메뉴 추가
+        JComboBox<String> buildingDropdown = new JComboBox<>();
+        Map<String, List<Restaurant>> buildingRestaurantMap = loadBuildingsAndRestaurants(buildingDropdown);
 
-        return frame;
-    }
+        dropdownPanel.add(buildingDropdown);
+        dropdownPanel.add(Box.createRigidArea(new Dimension(10, 0))); // 두 드롭다운 사이에 간격 추가
+        dropdownPanel.add(sortDropdown);
 
-    // Create title bar panel
-    public JPanel createTitleBar() {
-        JPanel titleBarPanel = new JPanel(new BorderLayout());
-        titleBarPanel.setPreferredSize(new Dimension(WINDOW_WIDTH, 50));
-        titleBarPanel.setBackground(COLOR_EWHA_GREEN);
+        // 카테고리 체크박스 패널 생성
+        JPanel categoriesPanel = new JPanel(new GridLayout(2, 4, 10, 10));
+        List<JCheckBox> categoryCheckBoxes = new ArrayList<>();
+        String[] categories = {"한식", "중식", "일식", "양식", "분식", "아시안", "패스트푸드", "카페"};
+        for (String category : categories) {
+            JCheckBox checkBox = new JCheckBox(category);
+            categoriesPanel.add(checkBox);
+            categoryCheckBoxes.add(checkBox);
+        }
 
-        JLabel titleLabel = new JLabel("EwhaRibbon", SwingConstants.CENTER);
-        titleLabel.setForeground(Color.WHITE);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        filterPanel.add(dropdownPanel);
+        filterPanel.add(Box.createRigidArea(new Dimension(0, 10))); // 드롭다운과 체크박스 사이에 간격 추가
+        filterPanel.add(categoriesPanel);
 
-        titleBarPanel.add(titleLabel, BorderLayout.CENTER);
-        return titleBarPanel;
-    }
+        // 레스토랑 리스트 모델 및 리스트 생성
+        DefaultListModel<String> restaurantListModel = new DefaultListModel<>();
+        JList<String> restaurantJList = new JList<>(restaurantListModel);
+        JScrollPane restaurantScrollPane = new JScrollPane(restaurantJList);
+        mainSelectionPanel.add(filterPanel, BorderLayout.NORTH);
+        mainSelectionPanel.add(restaurantScrollPane, BorderLayout.CENTER);
 
-    // Create sidebar panel
-    public JPanel createSidebar() {
-        JPanel sidebarPanel = new JPanel();
-        sidebarPanel.setPreferredSize(new Dimension(200, WINDOW_HEIGHT));
-        sidebarPanel.setBackground(COLOR_DEFAULT_BUTTON);
-        sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS));
-
-        // "메인" 버튼을 생성하고 mainButton 필드에 할당합니다.
-        mainButton = addSidebarButton(sidebarPanel, "메인", e -> displayContent(DB2024Team13_customWindow.createSelectionPanel(this)));
-        addSidebarButton(sidebarPanel, "검색", e -> displayContent(DB2024Team13_searchWindow.createSearchPanel(this)));
-        addSidebarButton(sidebarPanel, "내정보", e -> displayContent(DB2024Team13_myinfoWindow.createMyInfoPanel(this)));
-        sidebarPanel.add(Box.createVerticalGlue());
-        
-        // Add logout button
-        addLogoutButton(sidebarPanel);
-
-        // 초기화 시 "메인" 버튼을 하이라이트
-        setSelectedButtonHighlight(mainButton);
-
-        return sidebarPanel;
-    }
-
-    // Add sidebar button
-    private JButton addSidebarButton(JPanel sidebarPanel, String text, ActionListener actionListener) {
-        JButton button = new JButton(text);
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-        button.setBackground(COLOR_DEFAULT_BUTTON);
-        button.setForeground(COLOR_DEFAULT_BUTTON_TEXT);
-        button.addActionListener(e -> {
-            actionListener.actionPerformed(e);
-            setSelectedButtonHighlight(button);
-        });
-        sidebarButtonList.add(button);
-        sidebarPanel.add(button);
-        return button;  // 생성된 버튼을 반환합니다.
-    }
-
-    // Add logout button
-    private void addLogoutButton(JPanel sidebarPanel) {
-        JButton logoutButton = new JButton("로그아웃");
-        logoutButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        logoutButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-        logoutButton.setBackground(COLOR_DEFAULT_BUTTON);
-        logoutButton.setForeground(Color.WHITE);
-        logoutButton.addActionListener(e -> {
-            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(logoutButton);
-            frame.dispose();  // Close the current window
-            DB2024Team13_loginWindow.displayLoginWindow();  // Display the login window
-        });
-        sidebarPanel.add(logoutButton);
-    }
-
-    // Highlight selected button
-    private void setSelectedButtonHighlight(JButton selectedButton) {
-        for (JButton button : sidebarButtonList) {
-            if (button == selectedButton) {
-                button.setBackground(COLOR_SELECTED_BUTTON);
-                button.setForeground(COLOR_SELECTED_BUTTON_TEXT);
-            } else {
-                button.setBackground(COLOR_DEFAULT_BUTTON);
-                button.setForeground(COLOR_DEFAULT_BUTTON_TEXT);
+        // 드롭다운 선택에 따라 리스트를 필터링하는 리스너 추가
+        buildingDropdown.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    String selectedBuilding = (String) buildingDropdown.getSelectedItem();
+                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
+                }
             }
+        });
+
+        // 체크박스 선택에 따라 리스트를 필터링하는 리스너 추가
+        for (JCheckBox checkBox : categoryCheckBoxes) {
+            checkBox.addItemListener(new ItemListener() {
+                @Override
+                public void itemStateChanged(ItemEvent e) {
+                    String selectedBuilding = (String) buildingDropdown.getSelectedItem();
+                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
+                }
+            });
+        }
+
+        // 정렬 기준 변경에 따라 리스트를 재정렬하는 리스너 추가
+        sortDropdown.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    String selectedBuilding = (String) buildingDropdown.getSelectedItem();
+                    List<Restaurant> restaurants = buildingRestaurantMap.getOrDefault(selectedBuilding, new ArrayList<>());
+                    filterAndDisplayRestaurants(restaurants, restaurantListModel, categoryCheckBoxes, (String) sortDropdown.getSelectedItem());
+                }
+            }
+        });
+
+        // 초기 데이터를 설정 (첫 번째 건물의 레스토랑 리스트를 미리 표시)
+        if (buildingDropdown.getItemCount() > 0) {
+            buildingDropdown.setSelectedIndex(0);
+        }
+
+        // 레스토랑 리스트에 마우스 리스너 추가 (더블 클릭 시 상세 정보 보기)
+        restaurantJList.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    String selectedRestaurant = restaurantJList.getSelectedValue();
+                    if (selectedRestaurant != null) {
+                        mainWindow.displayDetail(selectedRestaurant);
+                    }
+                }
+            }
+        });
+
+        return mainSelectionPanel;
+    }
+
+    /**
+     * 레스토랑 리스트를 필터링하고 화면에 표시하는 메소드
+     *
+     * @param restaurants 레스토랑 리스트
+     * @param listModel 리스트 모델
+     * @param checkBoxes 카테고리 체크박스 리스트
+     * @param sortOption 정렬 옵션
+     */
+    private static void filterAndDisplayRestaurants(List<Restaurant> restaurants, DefaultListModel<String> listModel, List<JCheckBox> checkBoxes, String sortOption) {
+        listModel.clear();
+        List<Restaurant> filteredRestaurants = new ArrayList<>();
+        for (Restaurant restaurant : restaurants) {
+            boolean matchesCategory = checkBoxes.stream()
+                    .filter(JCheckBox::isSelected)
+                    .map(JCheckBox::getText)
+                    .anyMatch(category -> restaurant.getCategory().contains(category));
+
+            if (matchesCategory || checkBoxes.stream().noneMatch(JCheckBox::isSelected)) {
+                filteredRestaurants.add(restaurant);
+            }
+        }
+
+        // 정렬
+        sortRestaurants(filteredRestaurants, sortOption);
+
+        for (Restaurant restaurant : filteredRestaurants) {
+            listModel.addElement(restaurant.getName());
         }
     }
 
-    // Return main content panel
-    public JPanel getMainPanel() {
-        return mainPanel;
+    /**
+     * 레스토랑 목록을 정렬하는 메소드
+     *
+     * @param restaurants 레스토랑 리스트
+     * @param sortOption 정렬 옵션
+     */
+    private static void sortRestaurants(List<Restaurant> restaurants, String sortOption) {
+        switch (sortOption) {
+            case "주문순":
+                restaurants.sort(Comparator.comparingInt(Restaurant::getOrderCount).reversed());
+                break;
+            case "평점순":
+                restaurants.sort(Comparator.comparingDouble(Restaurant::getAvgRating).reversed());
+                break;
+            case "이름순":
+                restaurants.sort(Comparator.comparing(Restaurant::getName, Comparator.reverseOrder()));
+                break;
+        }
     }
 
-    // Display detailed information
-    public void displayDetail(String restaurant) {
-        JPanel detailPanel = DB2024Team13_detailWindow.createDetailPanel(restaurant);
-        displayContent(detailPanel);
+    /**
+     * 데이터베이스에서 건물과 레스토랑 목록을 가져오는 메소드
+     *
+     * @param buildingDropdown 건물 드롭다운 컴포넌트
+     * @return 건물별 레스토랑 목록을 담은 맵
+     */
+    private static Map<String, List<Restaurant>> loadBuildingsAndRestaurants(JComboBox<String> buildingDropdown) {
+        Map<String, List<Restaurant>> buildingRestaurantMap = new HashMap<>();
+        Map<String, String> buildingSectionMap = new HashMap<>();
+        String buildingQuery = "SELECT building, section FROM DB2024_section";
+        String restaurantQuery = "SELECT rest_name, location, best_menu, category, breaktime, eat_alone, section_name, " +
+                "(SELECT order_count FROM DB2024_rest_order_count WHERE DB2024_rest_order_count.rest_name = DB2024_restaurant.rest_name) as order_count, " +
+                "(SELECT avg_rating FROM DB2024_rest_avg_rating WHERE DB2024_rest_avg_rating.rest_name = DB2024_restaurant.rest_name) as avg_rating " +
+                "FROM DB2024_restaurant WHERE section_name = ?";
+
+        try (Connection conn = DB2024Team13_connection.getConnection();
+             PreparedStatement buildingStmt = conn.prepareStatement(buildingQuery);
+             ResultSet buildingRs = buildingStmt.executeQuery()) {
+
+            // Load buildings and sections
+            while (buildingRs.next()) {
+                String building = buildingRs.getString("building");
+                String section = buildingRs.getString("section");
+                buildingDropdown.addItem(building);
+                buildingSectionMap.put(building, section);
+                buildingRestaurantMap.put(building, new ArrayList<>());
+            }
+
+            // Load restaurants for each section
+            try (PreparedStatement restaurantStmt = conn.prepareStatement(restaurantQuery)) {
+                for (String building : buildingSectionMap.keySet()) {
+                    String section = buildingSectionMap.get(building);
+                    restaurantStmt.setString(1, section);
+                    try (ResultSet restaurantRs = restaurantStmt.executeQuery()) {
+                        while (restaurantRs.next()) {
+                            String name = restaurantRs.getString("rest_name");
+                            String location = restaurantRs.getString("location");
+                            String bestMenu = restaurantRs.getString("best_menu");
+                            String category = restaurantRs.getString("category");
+                            boolean breakTime = restaurantRs.getBoolean("breaktime");
+                            boolean eatAlone = restaurantRs.getBoolean("eat_alone");
+                            int orderCount = restaurantRs.getInt("order_count");
+                            double avgRating = restaurantRs.getDouble("avg_rating");
+
+                            Restaurant restaurant = new Restaurant(name, location, bestMenu, category, breakTime, eatAlone, orderCount, avgRating);
+                            buildingRestaurantMap.get(building).add(restaurant);
+                        }
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return buildingRestaurantMap;
     }
 
-    // Display content
-    private void displayContent(Component component) {
-        mainPanel.removeAll();
-        mainPanel.add(component, BorderLayout.CENTER);
-        mainPanel.revalidate();
-        mainPanel.repaint();
+    /**
+     * 레스토랑 클래스 정의
+     */
+    static class Restaurant {
+        private String name;
+        private String location;
+        private String bestMenu;
+        private String category;
+        private boolean breakTime;
+        private boolean eatAlone;
+        private int orderCount;
+        private double avgRating;
+
+        public Restaurant(String name, String location, String bestMenu, String category, boolean breakTime, boolean eatAlone, int orderCount, double avgRating) {
+            this.name = name;
+            this.location = location;
+            this.bestMenu = bestMenu;
+            this.category = category;
+            this.breakTime = breakTime;
+            this.eatAlone = eatAlone;
+            this.orderCount = orderCount;
+            this.avgRating = avgRating;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public String getBestMenu() {
+            return bestMenu;
+        }
+
+        public String getCategory() {
+            return category;
+        }
+
+        public boolean isBreakTime() {
+            return breakTime;
+        }
+
+        public boolean isEatAlone() {
+            return eatAlone;
+        }
+
+        public int getOrderCount() {
+            return orderCount;
+        }
+
+        public double getAvgRating() {
+            return avgRating;
+        }
     }
 }
